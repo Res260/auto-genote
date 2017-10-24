@@ -1,7 +1,8 @@
-import json
-from robobrowser import RoboBrowser
-import logging
 import configparser as cp
+import json
+import logging
+
+from robobrowser import RoboBrowser
 
 LOGGER = logging.Logger("main")
 LOGGER.addHandler(logging.StreamHandler())
@@ -10,22 +11,37 @@ LOGGER.addHandler(logging.StreamHandler())
 def main():
     LOGGER.info("Booting... ")
     config = get_config_file_data()
-    browser = RoboBrowser(session=None,
-                          history=False,
-                          timeout=1000,
-                          allow_redirects=True,
-                          cache=False,
-                          parser="html.parser")
-    connect_to_genote(browser, config)
-    classes_dictionary = get_classes_dictionary(browser.select("tbody")[0].findAll("tr"))
-    with open(config["GENERAL"]["save_file"], 'rb') as save_file:
-        old_classes_dictionary = json.loads(save_file.read(), encoding="UTF-8")
+    try:
+        browser = RoboBrowser(session=None,
+                              history=False,
+                              timeout=1000,
+                              allow_redirects=True,
+                              cache=False,
+                              parser="html.parser")
+        connect_to_genote(browser, config)
+    except Exception as e:
+        LOGGER.error("Something bad happened during the browsing: {}".format(e))
 
-        if dict_has_differences(classes_dictionary, old_classes_dictionary):
-            LOGGER.warning("DIFFERENCE FOUND BETWEEN OLD AND NEW: old: {}, new: {}"
-                           .format(old_classes_dictionary, classes_dictionary))
-    save_classes_dict(classes_dictionary, config["GENERAL"]["save_file"])
-    pass
+    classes_dictionary = get_classes_dictionary(browser.select("tbody")[0].findAll("tr"))
+    compare_warn_and_save(classes_dictionary, config)
+
+
+def compare_warn_and_save(classes_dictionary, config):
+    try:
+        LOGGER.info("Open old save file")
+        with open(config["GENERAL"]["save_file"], 'rb') as save_file:
+            old_classes_dictionary = json.loads(save_file.read(), encoding="UTF-8")
+
+            LOGGER.info("Check for differences")
+            if dict_has_differences(classes_dictionary, old_classes_dictionary):
+                LOGGER.warning("DIFFERENCE FOUND BETWEEN OLD AND NEW: old: {}, new: {}"
+                               .format(old_classes_dictionary, classes_dictionary))
+                save_classes_dict(classes_dictionary, config["GENERAL"]["save_file"])
+            else:
+                LOGGER.info("Did verification, no difference was found between old and new data.")
+    except FileNotFoundError:
+        LOGGER.info("Old save file did not exist, create one with data.")
+        save_classes_dict(classes_dictionary, config["GENERAL"]["save_file"])
 
 
 def dict_has_differences(dict1, dict2):
