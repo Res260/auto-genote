@@ -23,25 +23,30 @@ def main():
         LOGGER.error("Something bad happened during the browsing: {}".format(e))
 
     classes_dictionary = get_classes_dictionary(browser.select("tbody")[0].findAll("tr"))
-    compare_warn_and_save(classes_dictionary, config)
+    compare_warn_and_save(classes_dictionary, config["GENERAL"]["save_file"])
 
 
-def compare_warn_and_save(classes_dictionary, config):
+def compare_warn_and_save(classes_dictionary, save_file):
+    """
+    Compares the old classes dictionary with the new one. If there are differences, log them.
+    :param classes_dictionary: The new classes_dictionary to be compared with the old one
+    :param save_file: the name of the save file to save and fetch the classes_dictionary.
+    """
     try:
         LOGGER.info("Open old save file")
-        with open(config["GENERAL"]["save_file"], 'rb') as save_file:
+        with open(save_file, 'rb') as save_file:
             old_classes_dictionary = json.loads(save_file.read(), encoding="UTF-8")
 
             LOGGER.info("Check for differences")
             if dict_has_differences(classes_dictionary, old_classes_dictionary):
                 LOGGER.warning("DIFFERENCE FOUND BETWEEN OLD AND NEW: old: {}, new: {}"
                                .format(old_classes_dictionary, classes_dictionary))
-                save_classes_dict(classes_dictionary, config["GENERAL"]["save_file"])
+                save_classes_dict(classes_dictionary, save_file)
             else:
                 LOGGER.info("Did verification, no difference was found between old and new data.")
     except FileNotFoundError:
         LOGGER.info("Old save file did not exist, create one with data.")
-        save_classes_dict(classes_dictionary, config["GENERAL"]["save_file"])
+        save_classes_dict(classes_dictionary, save_file)
 
 
 def dict_has_differences(dict1, dict2):
@@ -64,6 +69,11 @@ def dict_has_differences(dict1, dict2):
 
 
 def save_classes_dict(classes_dictionary, file_name):
+    """
+    Serializes classes_dicionary in UTF-8 and saves it to file_name.
+    :param classes_dictionary: The dict to be saved to a file
+    :param file_name: The file name
+    """
     LOGGER.info(
         "Saving classes_dictionary to file: {} --> {}".format(file_name, classes_dictionary))
     with open(file_name, 'wb') as save_file:
