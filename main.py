@@ -6,11 +6,16 @@ from robobrowser import RoboBrowser
 
 
 class AutoGenote:
+
     def __init__(self):
         self.LOGGER = logging.Logger("main")
         self.LOGGER.addHandler(logging.StreamHandler())
 
     def run(self):
+        """
+        Fetches the content from Genote, parses it, then compare it with an old version of the same
+        page. If differences are found, logs it.
+        """
         self.LOGGER.info("Booting... ")
         config = self.__get_config_file_data()
         try:
@@ -78,6 +83,12 @@ class AutoGenote:
         return classes
 
     def __connect_to_genote(self, browser, config):
+        """
+        Using the provided browser, connects to Genote and redirects to the page with
+        the desired data.
+        :param browser: The browser object to navigate
+        :param config: The config data.
+        """
         self.LOGGER.info("Opening url: {}".format(config["GENERAL"]["url"]))
         browser.open(config["GENERAL"]["url"])
         self.LOGGER.info("Looking for form: {}".format(config["GENERAL"]["form_id"]))
