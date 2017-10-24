@@ -2,15 +2,6 @@
 Program to automatically check if a new grade has been published using genote, a website my school uses.
 
 # Installation
-Must create a `config.json` file based on `config.file.example` with your own login and password.
+This is a "cog" for the Discord RedBot (see: https://github.com/Cog-Creators/Red-DiscordBot). You need to have a working installation of RedBot to use this.
 
-```bash
-[GENERAL]
-url = https://www.usherbrooke.ca/genote/application/etudiant/cours.php
-form_id = authentification
-save_file = save.file
-
-[CREDENTIALS]
-login = INSERT_LOGIN_HERE
-password = INSERT_PASSWORD_HERE
-```
+When fist running the bot, a config file will be created. You need to change the file's content and fill it with your Genote's credidentials.
