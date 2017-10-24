@@ -45,7 +45,7 @@ class AutoGenote:
                 old_classes_dictionary = json.loads(save_file_stream.read(), encoding="UTF-8")
 
                 self.LOGGER.info("Check for differences")
-                if self.dict_has_differences(classes_dictionary, old_classes_dictionary):
+                if classes_dictionary != old_classes_dictionary:
                     self.LOGGER.warning("DIFFERENCE FOUND BETWEEN OLD AND NEW: old: {}, new: {}"
                                         .format(old_classes_dictionary, classes_dictionary))
                     self.save_classes_dict(classes_dictionary, save_file)
@@ -111,24 +111,6 @@ class AutoGenote:
         config = cp.ConfigParser()
         config.read(file)
         return config
-
-    @staticmethod
-    def dict_has_differences(dict1, dict2):
-        """
-        :param dict1: First dictionary to compare
-        :param dict2: Second dictionary to compare
-        :return: True if dict1 and dict2 are not equivalent
-        """
-        has_differences = False
-        if len(dict1) != len(dict2):
-            has_differences = True
-        else:
-            for key, value in dict1.items():
-                if key not in dict2:
-                    has_differences = True
-                elif not value == dict2[key]:
-                    has_differences = True
-        return has_differences
 
 
 if __name__ == '__main__':
