@@ -1,8 +1,0 @@
-[GENERAL]
-url = https://www.usherbrooke.ca/genote/application/etudiant/cours.php
-form_id = authentification
-save_file = save.file
-
-[CREDIDENTIALS]
-login = INSERT_LOGIN_HERE
-password = INSERT_PASSWORD_HERE
