@@ -126,9 +126,8 @@ class AutoGenote:
             for key, value in dict1.items():
                 if key not in dict2:
                     has_differences = True
-                else:
-                    if not value == dict2[key]:
-                        has_differences = True
+                elif not value == dict2[key]:
+                    has_differences = True
         return has_differences
 
 
