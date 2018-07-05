@@ -33,7 +33,7 @@ class Genote:
         self.bot = bot
         self.check_configs()
         self.load_data()
-        self.LOGGER = logging.Logger("mainnn")
+        self.LOGGER = logging.Logger("genote")
         self.LOGGER.setLevel(logging.INFO)
         self.LOGGER.addHandler(logging.StreamHandler())
         asyncio.ensure_future(self.periodic_check())
