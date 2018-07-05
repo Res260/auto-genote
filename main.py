@@ -3,9 +3,11 @@ import discord
 import os.path
 import os
 import logging
+import random
 
 from robobrowser import RoboBrowser
 
+from urllib.parse import urljoin
 from discord.ext import commands
 from .utils import checks
 from .utils.dataIO import dataIO
@@ -19,11 +21,13 @@ class Genote:
 
     CONFIG_DEFAULT = {"url": "https://www.usherbrooke.ca/genote/application/etudiant/cours.php",
                       "form_id": "authentification", "login": "", "password": "", "last_save": {},
-                      "loop_time": 180, "announcement_channel": "355384548671881220"}
+                      "loop_time": 180, "announcement_channel": "355384548671881220", "notifs": []}
 
     CHANNEL_SET = ":white_check_mark: Le channel d'annonce des nouvelles notes est maintenant: <#{}>."
-    ANNOUNCEMENT = "Une nouvelle note est disponible sur Genote!"
+    ANNOUNCEMENT = "Une nouvelle note est disponible sur Genote pour **{}**."
     LOOP_SET = ":white_check_mark: Le temps entre chaque vérification est maintenant: **{}** secondes."
+    WILL_NOTIFY = "🔔"
+    WONT_NOTIFY = "🔕"
 
     def __init__(self, bot):
         self.bot = bot
@@ -34,15 +38,23 @@ class Genote:
         self.LOGGER.addHandler(logging.StreamHandler())
         asyncio.ensure_future(self.periodic_check())
 
-    # Events
-    def __unload(self):
-        pass
-
     # Commands
     @commands.group(name="genote", pass_context=True, invoke_without_command=True)
     async def genote(self, ctx):
         """Commandes de gestion du module Genote"""
         await self.bot.send_cmd_help(ctx)
+
+    @genote.command(name="notify", pass_context=True)
+    async def _genote_notify(self, ctx, should_notify: str="no"):
+        """Définis si oui ou non tu veux recevoir des notifications
+
+        Si `should_notify` vaut `yes`, `y`, `1`, `true` ou `t`, alors tu recevras les notifications 🔔
+        Tout autre chaîne de caractères sera considérée comme ne pas vouloir de notifications 🔕"""
+        message = ctx.message
+        will_notify = should_notify.lower() in self.YES_STRINGS
+        self.config["notifs"] = list(set(self.config["notifs"]) | {message.author.id})
+        self.save_data()
+        await self.bot.add_reaction(message, self.WILL_NOTIFY if will_notify else self.WONT_NOTIFY)
 
     @genote.command(name="channel", pass_context=True)
     @checks.mod_or_permissions(manage_server=True)
@@ -70,7 +82,8 @@ class Genote:
         self.announcement_channel = self.bot.get_channel(self.config["announcement_channel"])
         while self == self.bot.get_cog(self.__class__.__name__):
             await self.run()
-            await asyncio.sleep(self.config["loop_time"])
+            random_offset = (random.random() * 10) - 5
+            await asyncio.sleep(config["loop_time"] + random_offset)
 
     async def run(self):
         """
@@ -89,7 +102,8 @@ class Genote:
         except Exception as e:
             self.LOGGER.critical("Something bad happened during the browsing: {}".format(e))
         else:
-            classes_dictionary = self.__get_classes_dictionary(browser.select("tbody")[0].findAll("tr"))
+            classes_urls = self.get_classes_urls(browser.select("#contenu_principal table tbody tr"))
+            classes_dictionary = self.get_classes(browser, classes_urls)
             await self.check_differences(classes_dictionary)
 
     async def check_differences(self, classes_dictionary):
@@ -98,28 +112,52 @@ class Genote:
         :param classes_dictionary: The new classes_dictionary to be compared with the old one
         """
         self.LOGGER.info("Check for differences")
-        if classes_dictionary != self.config["last_save"]:
+        differences = self.calculate_differences(self.config["last_save"], classes_dictionary)
+        if len(differences) > 0:
             self.LOGGER.warning("DIFFERENCE FOUND BETWEEN OLD AND NEW: old: {}, new: {}"
                                 .format(self.config["last_save"], classes_dictionary))
             self.config["last_save"] = classes_dictionary
             self.save_data()
-            await self.bot.send_message(self.announcement_channel, self.ANNOUNCEMENT)
+            announcement = self.ANNOUNCEMENT.format(", ".join(differences))
+            await self.bot.send_message(self.announcement_channel, announcement)
+            for m_id in self.config["notifs"]:
+                m = self.announcement_channel.server.get_member(m_id)
+                if m is not None:
+                    await self.bot.send_message(m, announcement)
         else:
             self.LOGGER.info("Did verification, no difference was found between old and new data.")
 
-    def __get_classes_dictionary(self, table_rows):
-        """
-        :param table_rows: The list of html tags of the rows of the classes
-        :return: A dictionary with the class name as key and a the grade count as value
-        """
-        self.LOGGER.info("Parsing HTML to find data.")
+    def get_classes(self, browser, classes_urls):
+        result = {}
+        for class_name, class_url in classes_urls.items():
+            full_url = urljoin(self.config["url"], class_url)
+            browser.open(full_url)
+            tp_rows = browser.select("#contenu_principal table tbody tr")
+            tps = []
+            for tp_row in tp_rows:
+                if "footer" not in tp_row.get("class", []):
+                    title = ""
+                    for title_part in tp_row.td.stripped_strings:
+                        title += title_part
+                    tps.append(title)
+            result[class_name] = tps
+        return result
+
+    def calculate_differences(self, a, b):
+        updates = set()
+        for k, v in b.items():
+            if k in a and len(v) > len(a[k]) and len(v) > 0:
+                new_titles = set(v) - set(a[k])
+                updates.update({k + " - " + title for title in new_titles})
+        return updates
+
+    def get_classes_urls(self, table_rows):
         classes = {}
         for row in table_rows:
-            row_data = row.findAll("td")
-            row_data_pretty = []
-            for data in row_data:
-                row_data_pretty.append(data.decode_contents())
-            classes[row_data_pretty[0]] = row_data_pretty[4]
+            title = row.td.string
+            consulter_td = row.find_all("td")[-1]
+            if consulter_td.a is not None:
+                classes[title] = consulter_td.a.get("href")
         return classes
 
     def __connect_to_genote(self, browser):
